@@ -16,3 +16,5 @@ hs_err_pid*
 
 # Project
 bin
+spacy/.env
+*vscode
