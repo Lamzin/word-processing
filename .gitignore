@@ -18,3 +18,7 @@ hs_err_pid*
 bin
 spacy/.env
 *vscode
+
+
+*.pyc
+spacy/__pychache__
