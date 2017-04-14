@@ -1,7 +1,11 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
+import synonyms
+
 from paraphrase import ParaphraseTest
+from nltk.text import TextCollection
+import extractor
 
 def test(s1, s2, is_paraphrase):
     print('Paraphrase: ' if is_paraphrase else 'Not paraphrase: ')
@@ -10,6 +14,7 @@ def test(s1, s2, is_paraphrase):
     print('')
 
 if __name__ == "__main__":
+
     test(
         u'They had published an advertisement on the Internet on June 10, offering the cargo for sale, he added.',
         u'On June 10, the ship’s owners had published an advertisement on the Internet, offering the explosives for sale.',

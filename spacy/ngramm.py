@@ -1,7 +1,8 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 
-# import sets
+import synonyms
+
 from multiset import Multiset
 
 
@@ -23,12 +24,7 @@ class NGramm(object):
         return len(self.words)
 
     def __eq__(self, other):
-        if len(self) != len(other):
-            return False
-        for i in range(len(self)):
-            if self.words[i] != other.words[i]:
-                return False
-        return True
+        return synonyms.is_equal(self.words, other.words)
 
     def __ne__(self, other):
         return (not self.__eq__(other))
@@ -40,7 +36,7 @@ class NGramms(object):
         if ngramms is not None:
             self.ngramms = ngramms
             return
-        self.ngramms = [NGramm(words[i:i+n]) for i in range(len(words)-n)]
+        self.ngramms = Multiset([NGramm(words[i:i+n]) for i in range(len(words)-n)])
         self.words = words
 
     def __str__(self):
@@ -54,5 +50,8 @@ class NGramms(object):
         return len(self.ngramms)
 
     def intersection(self, other):
-        both = list(Multiset(self.ngramms).intersection(Multiset(other.ngramms)))
+        both = self.ngramms.intersection(other.ngramms)
         return NGramms(ngramms=both)
+
+    def count(self):
+        return sum([self.ngramms[x] for x in self.ngramms])
