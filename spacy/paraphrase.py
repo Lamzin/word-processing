@@ -41,6 +41,19 @@ class ParaphraseTest(object):
             NIST = self.nist
         )
 
+    def get_features(self):
+        features = []
+        features.append(self.sentence_length_difference)
+        features.extend(self.ngramms_comparing)
+        features.append(self.dependencies_similarity)
+        features.append(self.dependencies_comparing)
+        features.extend(self.syntactic_ngramms_comparing)
+        features.append(self.bleu)
+        features.append(self.idf_bleu)
+        features.append(self.sbleu)
+        features.append(self.nist)
+        return features
+
     def calculate_all_features(self):
         self.calculate_sentence_length_difference()
         self.calculate_ngramms_comparing()
