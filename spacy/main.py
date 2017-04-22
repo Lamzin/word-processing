@@ -4,6 +4,7 @@
 
 import pickle
 from sklearn import svm
+from sklearn.cluster import KMeans
 
 
 class Train(object):
@@ -85,32 +86,38 @@ def get_tests():
     return tests
 
 
-def classify(trains, eps, l_max, top=200):
+def classify(trains, n, l_max, top=200, cluster_size=50):
     trains = trains[:]
     lvls = {1: set()}
+    # for feature_id in range(len(trains[0].features)):
+    #     trains = sorted(trains, key=lambda item: item.features[feature_id])
+    #     current_start_with = trains[0].features[feature_id]
+    #     current = [trains[0].array_id]
+    #     for item in trains[1:]:
+    #         if item.features[feature_id] - current_start_with < eps:
+    #             current.append(item.array_id)
+    #         else:
+    #             lvls[1].add(Cluster([feature_id], current))
+    #             current_start_with = item.features[feature_id]
+    #             current = [item.array_id]
+    #     lvls[1].add(Cluster([feature_id], current))
+
     for feature_id in range(len(trains[0].features)):
-        trains = sorted(trains, key=lambda item: item.features[feature_id])
-
-
-        # import matplotlib.pyplot as plt
-        # plt.plot([item.features[feature_id] for item in trains], [item.features[feature_id] for item in trains], 'ro')
-        # plt.axis([0, 2, 0, 2])
-        # plt.show()
-
-
-        current_start_with = trains[0].features[feature_id]
-        current = [trains[0].array_id]
-        for item in trains[1:]:
-            if item.features[feature_id] - current_start_with < eps:
-                current.append(item.array_id)
-            else:
-                lvls[1].add(Cluster([feature_id], current))
-                current_start_with = item.features[feature_id]
-                current = [item.array_id]
-        lvls[1].add(Cluster([feature_id], current))
+        X = [[item.features[feature_id]] for item in trains]
+        # n = int(1.0/eps)
+        print "n = ", n
+        kmeans = KMeans(n_clusters=n, random_state=0).fit(X)
+        clusters = [Cluster([feature_id], []) for i in range(n)]
+        for i, x in enumerate(kmeans.labels_):
+            clusters[x].train_ids.add(trains[i].array_id)
+        for c in clusters:
+            lvls[1].add(c)
 
     lvls[1] = list(lvls[1])
     lvls[1] = sorted(lvls[1], key=lambda cl: len(cl.train_ids), reverse=True)[:top]
+    lvls[1] = [c for c in lvls[1] if c.train_ids > cluster_size]
+    for cl in lvls[1][:10]:
+        print cl.feature_ids, len(cl.train_ids), sorted(list(cl.train_ids))[:10]
 
     for level in range(2, l_max + 1):
         lvls[level] = set()
@@ -122,25 +129,28 @@ def classify(trains, eps, l_max, top=200):
                         lvls[level].add(cl1.intersect(cl2))
         lvls[level] = list(lvls[level])
         lvls[level] = sorted(lvls[level], key=lambda cl: len(cl.train_ids), reverse=True)[:top]
-        # print ''
-        # for cl in lvls[level][:20]:
-            # print cl.feature_ids, len(cl.train_ids), sorted(list(cl.train_ids))[:10]
+        lvls[level] = [c for c in lvls[level] if c.train_ids > cluster_size]
+        print ''
+        for cl in lvls[level][:20]:
+            print cl.feature_ids, len(cl.train_ids), sorted(list(cl.train_ids))[:10]
     return lvls
 
 
-def split_by_clusters(trains, cluster_size, l_max, times_item_used, eps_min, eps_max):
+def split_by_clusters(trains, cluster_size, l_max, times_item_used, n_min, n_max):
     clusters = []
     used = {item.array_id: 0 for item in trains}
 
-    for eps in range(eps_min, eps_max):
-        print "eps: ", float(eps) / 1000
+    for n in range(n_max + 1, n_min, -1):
         print "used: ", len([k for k, v in used.items() if v >= times_item_used])
 
         trains_ = [item for item in trains if used[item.array_id] < times_item_used]
         if len(trains_) == 0:
             break
 
-        cls = classify(trains_, float(eps) / 1000, l_max=l_max, top=100)[l_max]
+        if len(trains_) < n:
+            continue
+
+        cls = classify(trains_, n=n, l_max=l_max, top=500, cluster_size=cluster_size)[l_max]
         for cl in cls:
             sz = len(cl.train_ids)
             if sz > cluster_size:
@@ -148,12 +158,13 @@ def split_by_clusters(trains, cluster_size, l_max, times_item_used, eps_min, eps
                 for id in cl.train_ids:
                     used[id]+=1
                 clusters.append(cl)
-    clusters.append(
-        Cluster(
-            [i for i in range(len(trains[0].features))],
-            [item.array_id for item in trains if used[item.array_id] < times_item_used]
+    if len([item.array_id for item in trains if used[item.array_id] < times_item_used]) > 0:
+        clusters.append(
+            Cluster(
+                [i for i in range(len(trains[0].features))],
+                [item.array_id for item in trains if used[item.array_id] < times_item_used]
+            )
         )
-    )
 
     print len(clusters)
     for cl in clusters:
@@ -215,14 +226,12 @@ def features_dist_analyze(trains_pos, trains_neg):
         x_neg, y_neg = get_dist(trains_neg)
         plt.plot(x_pos, y_pos, 'ro')
         plt.plot(x_neg, y_neg, 'bo')
-        # plt.axis([0, 2, 0, 2])
         plt.show()
 
 
 def test_two_layer_classifier():
     trains_all, trains_pos, trains_neg = get_trains()
-
-    features_dist_analyze(trains_pos, trains_neg)
+    # features_dist_analyze(trains_pos, trains_neg)
 
     def expand_features(clfs, feature_set):
         X = [tr.features for tr in feature_set]
@@ -236,8 +245,8 @@ def test_two_layer_classifier():
         return X, Y
 
     def make_classifier_lvl2():
-        clusters_pos = split_by_clusters(trains_pos, 300, 3, 2, 200, 500)
-        clusters_neg = split_by_clusters(trains_neg, 200, 3, 2, 200, 500)
+        clusters_pos = split_by_clusters(trains_pos, 150, 2, 2, 7, 20)
+        clusters_neg = split_by_clusters(trains_neg, 80, 2, 2, 7, 20)
         # with open('clusters.pkl', 'wb') as output:
             # pickle.dump(clusters_pos, output, pickle.HIGHEST_PROTOCOL)
             # pickle.dump(clusters_neg, output, pickle.HIGHEST_PROTOCOL)
