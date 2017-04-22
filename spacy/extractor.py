@@ -16,7 +16,15 @@ def get_all_sentenses():
 
 
 def get_all_trains():
-    file = open('msrpc/msr_paraphrase_train.txt')
+    return _get_pairs('msrpc/msr_paraphrase_train.txt')
+
+
+def get_all_tests():
+    return _get_pairs('msrpc/msr_paraphrase_test.txt')
+
+
+def _get_pairs(file_name):
+    file = open(file_name)
     lines = file.xreadlines()
 
     tests = []

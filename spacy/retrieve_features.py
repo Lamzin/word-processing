@@ -25,12 +25,13 @@ class Train(object):
 
 
 if __name__ == "__main__":
-    trains = extractor.get_all_trains()
+    # trains = extractor.get_all_trains()
+    # trains = extractor.get_all_tests()
     trains = [Train(t[0], t[1], t[2], t[3], t[4]) for t in trains]
 
     for i, t in enumerate(trains):
         t.run()
         print "{}/{}: {}".format(i, len(trains), t)
 
-    with open('train.pkl', 'wb') as output:
+    with open('tests.pkl', 'wb') as output:
         pickle.dump(trains, output, pickle.HIGHEST_PROTOCOL)
