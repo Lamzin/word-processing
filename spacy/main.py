@@ -90,6 +90,14 @@ def classify(trains, eps, l_max, top=200):
     lvls = {1: set()}
     for feature_id in range(len(trains[0].features)):
         trains = sorted(trains, key=lambda item: item.features[feature_id])
+
+
+        # import matplotlib.pyplot as plt
+        # plt.plot([item.features[feature_id] for item in trains], [item.features[feature_id] for item in trains], 'ro')
+        # plt.axis([0, 2, 0, 2])
+        # plt.show()
+
+
         current_start_with = trains[0].features[feature_id]
         current = [trains[0].array_id]
         for item in trains[1:]:
@@ -120,11 +128,11 @@ def classify(trains, eps, l_max, top=200):
     return lvls
 
 
-def split_by_clusters(trains, cluster_size, l_max, times_item_used):
+def split_by_clusters(trains, cluster_size, l_max, times_item_used, eps_min, eps_max):
     clusters = []
     used = {item.array_id: 0 for item in trains}
 
-    for eps in range(1, 400):
+    for eps in range(eps_min, eps_max):
         print "eps: ", float(eps) / 1000
         print "used: ", len([k for k, v in used.items() if v >= times_item_used])
 
@@ -132,7 +140,7 @@ def split_by_clusters(trains, cluster_size, l_max, times_item_used):
         if len(trains_) == 0:
             break
 
-        cls = classify(trains_, float(eps) / 1000, l_max=l_max, top=50)[l_max]
+        cls = classify(trains_, float(eps) / 1000, l_max=l_max, top=100)[l_max]
         for cl in cls:
             sz = len(cl.train_ids)
             if sz > cluster_size:
@@ -143,7 +151,7 @@ def split_by_clusters(trains, cluster_size, l_max, times_item_used):
     clusters.append(
         Cluster(
             [i for i in range(len(trains[0].features))],
-            [item.array_id for item in trains if used[item.array_id] < 2]
+            [item.array_id for item in trains if used[item.array_id] < times_item_used]
         )
     )
 
@@ -180,8 +188,41 @@ def test_one_layer_classifier():
     print "precision: {}, recall: {}, accuracy: {}, F: {}".format(precision, recall, accuracy, F)
 
 
+def features_dist_analyze(trains_pos, trains_neg):
+    trains_pos = trains_pos[:]
+    trains_neg = trains_neg[:]
+    for feature_id in range(len(trains_pos[0].features)):
+        trains_pos = sorted(trains_pos, key=lambda item: item.features[feature_id])
+        trains_neg = sorted(trains_neg, key=lambda item: item.features[feature_id])
+        print "sort by feature: ", feature_id
+        import matplotlib.pyplot as plt
+
+        def get_dist(trains):
+            X, Y = [], []
+            h = .0
+            eps = 0.05
+            while h < 1:
+                X.append(h)
+                arr = []
+                for item in trains:
+                    if item.features[feature_id] > h and item.features[feature_id] < h + eps:
+                        arr.append(0)
+                Y.append(len(arr) / float(len(trains)))
+                h += eps
+            return X, Y
+
+        x_pos, y_pos = get_dist(trains_pos)
+        x_neg, y_neg = get_dist(trains_neg)
+        plt.plot(x_pos, y_pos, 'ro')
+        plt.plot(x_neg, y_neg, 'bo')
+        # plt.axis([0, 2, 0, 2])
+        plt.show()
+
+
 def test_two_layer_classifier():
     trains_all, trains_pos, trains_neg = get_trains()
+
+    features_dist_analyze(trains_pos, trains_neg)
 
     def expand_features(clfs, feature_set):
         X = [tr.features for tr in feature_set]
@@ -195,8 +236,8 @@ def test_two_layer_classifier():
         return X, Y
 
     def make_classifier_lvl2():
-        clusters_pos = split_by_clusters(trains_pos, 150, 3, 1)
-        clusters_neg = split_by_clusters(trains_neg, 80, 3, 1)
+        clusters_pos = split_by_clusters(trains_pos, 300, 3, 2, 200, 500)
+        clusters_neg = split_by_clusters(trains_neg, 200, 3, 2, 200, 500)
         # with open('clusters.pkl', 'wb') as output:
             # pickle.dump(clusters_pos, output, pickle.HIGHEST_PROTOCOL)
             # pickle.dump(clusters_neg, output, pickle.HIGHEST_PROTOCOL)
